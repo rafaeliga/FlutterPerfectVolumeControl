@@ -13,16 +13,12 @@ import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
 import io.flutter.plugin.common.MethodChannel.Result;
-import io.flutter.plugin.common.PluginRegistry.Registrar;
 
 /**
  * PerfectVolumeControlPlugin
  */
 public class PerfectVolumeControlPlugin implements FlutterPlugin, MethodCallHandler {
     /// The MethodChannel that will the communication between Flutter and native Android
-    ///
-    /// This local reference serves to register the plugin with the Flutter Engine and unregister it
-    /// when the Flutter Engine is detached from the Activity
     private MethodChannel channel;
 
     /**
@@ -35,17 +31,28 @@ public class PerfectVolumeControlPlugin implements FlutterPlugin, MethodCallHand
      */
     private Boolean hideUI = false;
 
+    /**
+     * Context for unregistering receiver
+     */
+    private Context applicationContext;
+    
+    /**
+     * Volume receiver instance
+     */
+    private VolumeReceiver volumeReceiver;
+
     @Override
     public void onAttachedToEngine(@NonNull FlutterPluginBinding flutterPluginBinding) {
+        applicationContext = flutterPluginBinding.getApplicationContext();
         channel = new MethodChannel(flutterPluginBinding.getBinaryMessenger(), "perfect_volume_control");
         channel.setMethodCallHandler(this);
-        audioManager = (AudioManager) flutterPluginBinding.getApplicationContext().getSystemService(Context.AUDIO_SERVICE);
+        audioManager = (AudioManager) applicationContext.getSystemService(Context.AUDIO_SERVICE);
 
         // 注册音量监听
-        VolumeReceiver volumeReceiver = new VolumeReceiver();
+        volumeReceiver = new VolumeReceiver();
         IntentFilter filter = new IntentFilter();
         filter.addAction("android.media.VOLUME_CHANGED_ACTION");
-        flutterPluginBinding.getApplicationContext().registerReceiver(volumeReceiver, filter);
+        applicationContext.registerReceiver(volumeReceiver, filter);
     }
 
     @Override
@@ -68,7 +75,14 @@ public class PerfectVolumeControlPlugin implements FlutterPlugin, MethodCallHand
 
     @Override
     public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
+        if (volumeReceiver != null && applicationContext != null) {
+            applicationContext.unregisterReceiver(volumeReceiver);
+            volumeReceiver = null;
+        }
         channel.setMethodCallHandler(null);
+        channel = null;
+        audioManager = null;
+        applicationContext = null;
     }
 
     /**
@@ -108,7 +122,7 @@ public class PerfectVolumeControlPlugin implements FlutterPlugin, MethodCallHand
     private class VolumeReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
-            if (intent.getAction().equals("android.media.VOLUME_CHANGED_ACTION")) {
+            if (intent.getAction().equals("android.media.VOLUME_CHANGED_ACTION") && channel != null) {
                 int max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
                 int current = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
                 channel.invokeMethod("volumeChangeListener", (double) current / (double) max);
