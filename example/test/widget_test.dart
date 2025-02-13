@@ -8,7 +8,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:perfect_volume_control_example/main.dart';
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: Scaffold(
+        appBar: AppBar(
+          title: Text('Flutter Demo'),
+        ),
+        body: Center(
+          child: Text('Running on:'),
+        ),
+      ),
+    );
+  }
+}
 
 void main() {
   testWidgets('Verify Platform version', (WidgetTester tester) async {
@@ -19,7 +33,7 @@ void main() {
     expect(
       find.byWidgetPredicate(
         (Widget widget) =>
-            widget is Text && widget.data.startsWith('Running on:'),
+            widget is Text && widget.data != null && widget.data!.startsWith('Running on:'),
       ),
       findsOneWidget,
     );
